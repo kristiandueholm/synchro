@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synchro-app
+spec:
+  selector:
+    matchLabels:
+      app: synchro-app
+  replicas: 2
+  template:
+    metadata:
+      name: synchro-app
+      labels:
+        name: synchro-app
+        app: synchro-app
+        time: "0"
+    spec:
+      serviceAccountName: label-sa # Using custom SA
+      containers:
+        - name: synchro-container
+          image: synchro-app
+          imagePullPolicy: Never # Use local image inside Minikube
+          env:
+            - name: WEB_PORT
+              value: "8080"
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME # Added env. var.
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP

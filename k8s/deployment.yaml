@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: synchro-app
+  name: synchro-deployment
 spec:
   selector:
     matchLabels:
@@ -15,7 +15,7 @@ spec:
         app: synchro-app
         time: "0"
     spec:
-      serviceAccountName: label-sa # Using custom SA
+      # serviceAccountName: label-sa # Using custom SA
       containers:
         - name: synchro-container
           image: synchro-app

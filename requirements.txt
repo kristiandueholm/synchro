@@ -1,2 +1,6 @@
 aiohttp
+asyncio
+random
+os
+socket
 requests

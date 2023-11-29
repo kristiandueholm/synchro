@@ -3,17 +3,17 @@ import asyncio
 import random
 from os import environ
 import socket
-import requests
+import httpx
 
 clock = 0
 clock_lock = asyncio.Lock()
 
-def log_clock():
+async def log_clock():
     '''
     Logs current clock to show events.
     '''
     # Print out current clock
-    with clock_lock:
+    async with clock_lock:
         global clock
         print(f"Current time is: {clock}")
 
@@ -21,23 +21,30 @@ def log_clock():
 
 
 async def get_ip_list():
+    print("Getting ip list")
     own_ip = environ['POD_IP']
     ip_set = set()
 
     try:
-        response = socket.getaddrinfo("bully-service-internal",0,0,0,0)
+        response = socket.getaddrinfo("synchro-service-internal",0,0,0,0)
     except:
         print("Got exception during DNS lookup")
         return None
     
+    print(f"DNS response: {response}")
+
     for result in response:
         ip_set.add(result[-1][0])
+
+    print(f"IP set is: {ip_set}")
     
     # Remove own POD ip from the set of pods ip's
     try: 
         ip_set.remove(own_ip)
     except ValueError:
-        print("Own ip not in set")
+        print("Own ip not in set.")
+    except:
+        print("Unknown exception when removing own IP.")
     
     return list(ip_set)
 
@@ -46,26 +53,32 @@ async def event_counter():
     '''
     Process that randomly advances clock to simulate events.
     '''
+    print("Starting background task")
     event_amount = 10
-    for _ in event_amount:
-        asyncio.sleep(random.randint(10, 20))
+    for _ in range(event_amount):
+        await asyncio.sleep(random.randint(10, 20))
+        print("Event happening")
         # Advance clock
         async with clock_lock:
             global clock
             clock += 1
 
             # 1/3 chance of sending to random pod
-            if random.randint(1, 3) == 1:
+            if (random.random() < 0.3):
+                print("Sending message to random pod")
                 pod_port = environ['WEB_PORT']
-                ip_list = get_ip_list()
+                ip_list = await get_ip_list()
                 target_ip = random.choice(ip_list)
 
                 url = 'http://' + target_ip + ':' + pod_port + '/request'
 
-                response = await requests.post(url, json={"time": str(clock)})
-                print(f"Sent time: {clock}")
+                print(f"Sending to: {url}")
+
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, json={"time": str(clock)})
+                    print(f"Sent time: {clock} with response {response}")
                 
-        log_clock()
+        await log_clock()
         
             
 
@@ -76,6 +89,8 @@ async def recieve_message(request):
     '''
     
     data = await request.json()
+
+    print(f"Got data: {data}")
     
     try:
         recieved_time = data['time']
@@ -84,14 +99,14 @@ async def recieve_message(request):
 
     async with clock_lock:
         global clock
-        clock = max(clock, recieved_time) + 1
+        clock = max(clock, int(recieved_time)) + 1
 
-    log_clock()
+    await log_clock()
 
     return web.Response(text="OK", status=200)
 
 
-async def background_tasks():
+async def background_tasks(app):
     # task0 = asyncio.create_task(message_sender())
     task1 = asyncio.create_task(event_counter())
     yield

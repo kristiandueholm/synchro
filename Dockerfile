@@ -25,4 +25,4 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONIOENCODING=UTF-8
 
 # Define the command to be run when launching the container
-CMD ["python", "-u", "./app.py"]
+CMD ["python", "-u", "./app_vector.py"]
